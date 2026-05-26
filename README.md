@@ -1,5 +1,16 @@
 # aws-3-tier
 
+In this project, we are using:
+
+```bash
+Terraform
+VPC
+EC2 Auto Scaling
+ALB
+RDS
+Public + private subnets
+```
+
 ```bash
 Internet
    │
