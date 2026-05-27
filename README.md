@@ -31,3 +31,10 @@ EC2 Auto Scaling private
 Tier 3
 RDS private
 ```
+
+
+vpc/main.tf
+
+```tf
+
+```
