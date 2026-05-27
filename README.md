@@ -41,99 +41,99 @@ vpc/main.tf
 # 1. NETWORKING LAYER (VPC, SUBNETS, ROUTING)
 # ==========================================
 
-resource "aws_vpc" "main" {
+resource "aws_vpc" "bilalamjad-vpc" {
   cidr_block           = "10.0.0.0/16"
   enable_dns_hostnames = true
 
   tags = {
-    Name = "bilal-3tier-vpc"
+    Name = "bilalamjad-vpc"
   }
 }
 
-resource "aws_internet_gateway" "igw" {
-  vpc_id = aws_vpc.main.id
+resource "aws_internet_gateway" "internet-gw" {
+  vpc_id = aws_vpc.lamjad-vpc.id
 
   tags = {
-    Name = "bilal-igw"
+    Name = "internet-gw"
   }
 }
 
-resource "aws_subnet" "public_1" {
+resource "aws_subnet" "public-subnet-1" {
   vpc_id                  = aws_vpc.main.id
   cidr_block              = "10.0.1.0/24"
   availability_zone       = "ap-south-1a"
   map_public_ip_on_launch = true
 
   tags = {
-    Name = "bilal-public-1"
+    Name = "public-subnet-1"
   }
 }
 
-resource "aws_subnet" "public_2" {
+resource "aws_subnet" "public-subnet-2" {
   vpc_id                  = aws_vpc.main.id
   cidr_block              = "10.0.2.0/24"
   availability_zone       = "ap-south-1b"
   map_public_ip_on_launch = true
 
   tags = {
-    Name = "bilal-public-2"
+    Name = "public-subnet-2"
   }
 }
 
-resource "aws_subnet" "private_app_1" {
+resource "aws_subnet" "private-app-subnet-1" {
   vpc_id            = aws_vpc.main.id
   cidr_block        = "10.0.3.0/24"
   availability_zone = "ap-south-1a"
 
   tags = {
-    Name = "bilal-app-private-1"
+    Name = "private-app-subnet-1"
   }
 }
 
-resource "aws_subnet" "private_app_2" {
+resource "aws_subnet" "private-app-subnet-2" {
   vpc_id            = aws_vpc.main.id
   cidr_block        = "10.0.4.0/24"
   availability_zone = "ap-south-1b"
 
   tags = {
-    Name = "bilal-app-private-2"
+    Name = "private-app-subnet-2"
   }
 }
 
-resource "aws_subnet" "private_db_1" {
+resource "aws_subnet" "private-db-subnet-1" {
   vpc_id            = aws_vpc.main.id
   cidr_block        = "10.0.5.0/24"
   availability_zone = "ap-south-1a"
 
   tags = {
-    Name = "bilal-db-private-1"
+    Name = "private-db-subnet-1"
   }
 }
 
-resource "aws_subnet" "private_db_2" {
+resource "aws_subnet" "private-db-subnet-2" {
   vpc_id            = aws_vpc.main.id
   cidr_block        = "10.0.6.0/24"
   availability_zone = "ap-south-1b"
 
   tags = {
-    Name = "bilal-db-private-2"
+    Name = "private-db-subnet-2"
   }
 }
 
-resource "aws_eip" "nat" {
+resource "aws_eip" "elasticip" {
   domain = "vpc"
 }
 
-resource "aws_nat_gateway" "nat" {
+resource "aws_nat_gateway" "nat-gw" {
   allocation_id = aws_eip.nat.id
   subnet_id     = aws_subnet.public_1.id
 
   tags = {
-    Name = "bilal-nat-gateway"
+    Name = "nat-gw"
   }
 }
 
-resource "aws_route_table" "public" {
+resource "aws_route_table" "public-route-table" {
   vpc_id = aws_vpc.main.id
 
   route {
@@ -146,7 +146,7 @@ resource "aws_route_table" "public" {
   }
 }
 
-resource "aws_route_table" "private" {
+resource "aws_route_table" "private-route-table-app" {
   vpc_id = aws_vpc.main.id
 
   route {
