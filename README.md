@@ -33,6 +33,10 @@ RDS private
 ```
 
 
+- NAT gateway is placed in a public subnet.
+     - 1 NAT gateway only serves 1 availability zone.
+     - 2nd NAT gateway only servers 2nd availability zone.
+
 vpc/main.tf
 
 ```tf
