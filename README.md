@@ -133,7 +133,7 @@ resource "aws_nat_gateway" "nat-gw" {
   }
 }
 
-resource "aws_route_table" "public-route-table" {
+resource "aws_route_table" "route-table-public-subnets" {
   vpc_id = aws_vpc.main.id
 
   route {
@@ -146,7 +146,7 @@ resource "aws_route_table" "public-route-table" {
   }
 }
 
-resource "aws_route_table" "private-route-table-app" {
+resource "aws_route_table" "route-table-private-app-subnets" {
   vpc_id = aws_vpc.main.id
 
   route {
@@ -159,32 +159,32 @@ resource "aws_route_table" "private-route-table-app" {
   }
 }
 
-resource "aws_route_table_association" "pub_1" {
+resource "aws_route_table_association" "route-table-association-public-subnet-1" {
   subnet_id      = aws_subnet.public_1.id
   route_table_id = aws_route_table.public.id
 }
 
-resource "aws_route_table_association" "pub_2" {
+resource "aws_route_table_association" "route-table-association-public-subnet-2" {
   subnet_id      = aws_subnet.public_2.id
   route_table_id = aws_route_table.public.id
 }
 
-resource "aws_route_table_association" "app_1" {
+resource "aws_route_table_association" "route-table-association-private-app-subnet-1" {
   subnet_id      = aws_subnet.private_app_1.id
   route_table_id = aws_route_table.private.id
 }
 
-resource "aws_route_table_association" "app_2" {
+resource "aws_route_table_association" "route-table-association-private-app-subnet-2" {
   subnet_id      = aws_subnet.private_app_2.id
   route_table_id = aws_route_table.private.id
 }
 
-resource "aws_route_table_association" "db_1" {
+resource "aws_route_table_association" "route-table-association-private-db-subnet-1" {
   subnet_id      = aws_subnet.private_db_1.id
   route_table_id = aws_route_table.private.id
 }
 
-resource "aws_route_table_association" "db_2" {
+resource "aws_route_table_association" "route-table-association-private-db-subnet-2" {
   subnet_id      = aws_subnet.private_db_2.id
   route_table_id = aws_route_table.private.id
 }
