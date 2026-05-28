@@ -1,4 +1,6 @@
 
+Note: my region in ap-south-1, if you want you can change + you can change ami id 
+
 main.tf 
 ```tf
 terraform {
