@@ -1,8 +1,7 @@
 
-main.tf
+main.tf 
 ```tf
 terraform {
-  required_version = ">= 1.0"
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -12,72 +11,64 @@ terraform {
 }
 
 provider "aws" {
-  region = var.aws_region
+  region = "ap-south-1" # Mumbai Region
 }
 
+# ==================== DATA SOURCES ====================
+# This automatically fetches your Default VPC details from AWS
+data "aws_vpc" "default" {
+  default = true
+}
 
+# This automatically fetches your Default Subnet IDs
+data "aws_subnets" "default" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.default.id]
+  }
+}
 
-# ─────────────────────────────────────────
-# SECURITY GROUP FOR EC2
-#
-# Allows:
-#   - Port 80  from internet  → so users can open the PHP app in browser
-#   - Port 22  from your IP   → so you can SSH in for debugging
-# ─────────────────────────────────────────
+# ==================== SECURITY GROUPS ====================
+
+# 1. EC2 Security Group (Allows HTTP & SSH)
 resource "aws_security_group" "ec2_sg" {
-  name        = "ec2-web-sg"
-  description = "Allow HTTP from internet and SSH from my IP"
-  vpc_id      = aws_vpc.main.id
+  name        = "ec2-standalone-sg"
+  description = "Allow inbound traffic for EC2"
+  vpc_id      = data.aws_vpc.default.id
 
-  # HTTP — anyone can reach the web app
   ingress {
-    description = "HTTP from internet"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # SSH — only your machine
-  ingress {
-    description = "SSH from my IP only"
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = [var.my_ip]
-  }
-
-  # Allow all outbound (EC2 needs to reach RDS and internet for yum updates)
   egress {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
-
-  tags = { Name = "ec2-web-sg" }
 }
 
-# ─────────────────────────────────────────
-# SECURITY GROUP FOR RDS
-#
-# Allows:
-#   - Port 3306 (MySQL) ONLY from EC2 security group
-#   - Nothing else — RDS is completely hidden from the internet
-# ─────────────────────────────────────────
+# 2. RDS Security Group (Restricted to allow traffic ONLY from the EC2 instance)
 resource "aws_security_group" "rds_sg" {
-  name        = "rds-mysql-sg"
-  description = "Allow MySQL only from EC2 security group"
-  vpc_id      = aws_vpc.main.id
+  name        = "rds-standalone-sg"
+  description = "Allow inbound MySQL traffic from EC2 only"
+  vpc_id      = data.aws_vpc.default.id
 
   ingress {
-    description     = "MySQL from EC2 only"
     from_port       = 3306
     to_port         = 3306
     protocol        = "tcp"
-    # This references the EC2 SG directly — not an IP range.
-    # Only traffic coming FROM ec2_sg is allowed. Nothing else.
-    security_groups = [aws_security_group.ec2_sg.id]
+    security_groups = [aws_security_group.ec2_sg.id] # Cross-referencing EC2 SG
   }
 
   egress {
@@ -86,9 +77,55 @@ resource "aws_security_group" "rds_sg" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
-
-  tags = { Name = "rds-mysql-sg" }
 }
+
+# ==================== RDS SUBNET GROUP ====================
+# RDS requires a Subnet Group mapping at least 2 subnets even in a default VPC
+resource "aws_db_subnet_group" "default_db_group" {
+  name       = "default-vpc-db-subnet-group"
+  subnet_ids = data.aws_subnets.default.ids
+}
+
+# ==================== AWS RESOURCES ====================
+
+# 1. EC2 Instance
+resource "aws_instance" "web_server" {
+  ami                    = "ami-03f4878755434977f" # Amazon Linux 2023 AMI for ap-south-1
+  instance_type          = "t2.micro"
+  vpc_security_group_ids = [aws_security_group.ec2_sg.id]
+
+  tags = {
+    Name = "Standalone-Web-Server"
+  }
+}
+
+# 2. RDS MySQL Database Instance
+resource "aws_db_instance" "mysql_db" {
+  allocated_storage      = 20
+  db_name                = "mydatabase"
+  engine                 = "mysql"
+  engine_version         = "8.0"
+  instance_class         = "db.t3.micro"
+  username               = "admin"
+  password               = "SuperSecurePass123!" # Replace with your password
+  db_subnet_group_name   = aws_db_subnet_group.default_db_group.name
+  vpc_security_group_ids = [aws_security_group.rds_sg.id]
+  skip_final_snapshot    = true
+  publicly_accessible    = false
+
+  tags = {
+    Name = "Standalone-MySQL-RDS"
+  }
+}
+
+# ==================== OUTPUTS ====================
+
+output "ec2_public_ip" {
+  value = aws_instance.web_server.public_ip
+}
+
+output "rds_endpoint" {
+  value = aws_db_instance.mysql_db.endpoint
+}
+
 ```
-
-
