@@ -1,197 +1,94 @@
-# aws-3-tier
 
-In this project, we are using:
-
-```bash
-Terraform
-VPC
-EC2 Auto Scaling
-ALB
-RDS
-Public + private subnets
-```
-
-```bash
-Internet
-   │
-ALB (public)
-   │
-EC2 Auto Scaling (private)
-   │
-RDS (private)
-```
-
-```bash
-Tier 1
-ALB public
-
-Tier 2
-EC2 Auto Scaling private
-
-Tier 3
-RDS private
-```
-
-
-- NAT gateway is placed in a public subnet.
-     - 1 NAT gateway only serves 1 availability zone.
-     - 2nd NAT gateway only servers 2nd availability zone.
-
-vpc/main.tf
-
+main.tf
 ```tf
-
-# ==========================================
-# 1. NETWORKING LAYER (VPC, SUBNETS, ROUTING)
-# ==========================================
-
-resource "aws_vpc" "bilalamjad-vpc" {
-  cidr_block           = "10.0.0.0/16"
-  enable_dns_hostnames = true
-
-  tags = {
-    Name = "bilalamjad-vpc"
+terraform {
+  required_version = ">= 1.0"
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
   }
 }
 
-resource "aws_internet_gateway" "internet-gw" {
-  vpc_id = aws_vpc.lamjad-vpc.id
-
-  tags = {
-    Name = "internet-gw"
-  }
+provider "aws" {
+  region = var.aws_region
 }
 
-resource "aws_subnet" "public-subnet-1" {
-  vpc_id                  = aws_vpc.main.id
-  cidr_block              = "10.0.1.0/24"
-  availability_zone       = "ap-south-1a"
-  map_public_ip_on_launch = true
 
-  tags = {
-    Name = "public-subnet-1"
-  }
-}
 
-resource "aws_subnet" "public-subnet-2" {
-  vpc_id                  = aws_vpc.main.id
-  cidr_block              = "10.0.2.0/24"
-  availability_zone       = "ap-south-1b"
-  map_public_ip_on_launch = true
+# ─────────────────────────────────────────
+# SECURITY GROUP FOR EC2
+#
+# Allows:
+#   - Port 80  from internet  → so users can open the PHP app in browser
+#   - Port 22  from your IP   → so you can SSH in for debugging
+# ─────────────────────────────────────────
+resource "aws_security_group" "ec2_sg" {
+  name        = "ec2-web-sg"
+  description = "Allow HTTP from internet and SSH from my IP"
+  vpc_id      = aws_vpc.main.id
 
-  tags = {
-    Name = "public-subnet-2"
-  }
-}
-
-resource "aws_subnet" "private-app-subnet-1" {
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = "10.0.3.0/24"
-  availability_zone = "ap-south-1a"
-
-  tags = {
-    Name = "private-app-subnet-1"
-  }
-}
-
-resource "aws_subnet" "private-app-subnet-2" {
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = "10.0.4.0/24"
-  availability_zone = "ap-south-1b"
-
-  tags = {
-    Name = "private-app-subnet-2"
-  }
-}
-
-resource "aws_subnet" "private-db-subnet-1" {
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = "10.0.5.0/24"
-  availability_zone = "ap-south-1a"
-
-  tags = {
-    Name = "private-db-subnet-1"
-  }
-}
-
-resource "aws_subnet" "private-db-subnet-2" {
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = "10.0.6.0/24"
-  availability_zone = "ap-south-1b"
-
-  tags = {
-    Name = "private-db-subnet-2"
-  }
-}
-
-resource "aws_eip" "elasticip" {
-  domain = "vpc"
-}
-
-resource "aws_nat_gateway" "nat-gw" {
-  allocation_id = aws_eip.nat.id
-  subnet_id     = aws_subnet.public_1.id
-
-  tags = {
-    Name = "nat-gw"
-  }
-}
-
-resource "aws_route_table" "route-table-public-subnets" {
-  vpc_id = aws_vpc.main.id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.igw.id
+  # HTTP — anyone can reach the web app
+  ingress {
+    description = "HTTP from internet"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = {
-    Name = "bilal-public-rt"
-  }
-}
-
-resource "aws_route_table" "route-table-private-app-subnets" {
-  vpc_id = aws_vpc.main.id
-
-  route {
-    cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.nat.id
+  # SSH — only your machine
+  ingress {
+    description = "SSH from my IP only"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = [var.my_ip]
   }
 
-  tags = {
-    Name = "bilal-private-rt"
+  # Allow all outbound (EC2 needs to reach RDS and internet for yum updates)
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
   }
+
+  tags = { Name = "ec2-web-sg" }
 }
 
-resource "aws_route_table_association" "route-table-association-public-subnet-1" {
-  subnet_id      = aws_subnet.public_1.id
-  route_table_id = aws_route_table.public.id
+# ─────────────────────────────────────────
+# SECURITY GROUP FOR RDS
+#
+# Allows:
+#   - Port 3306 (MySQL) ONLY from EC2 security group
+#   - Nothing else — RDS is completely hidden from the internet
+# ─────────────────────────────────────────
+resource "aws_security_group" "rds_sg" {
+  name        = "rds-mysql-sg"
+  description = "Allow MySQL only from EC2 security group"
+  vpc_id      = aws_vpc.main.id
+
+  ingress {
+    description     = "MySQL from EC2 only"
+    from_port       = 3306
+    to_port         = 3306
+    protocol        = "tcp"
+    # This references the EC2 SG directly — not an IP range.
+    # Only traffic coming FROM ec2_sg is allowed. Nothing else.
+    security_groups = [aws_security_group.ec2_sg.id]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = { Name = "rds-mysql-sg" }
 }
-
-resource "aws_route_table_association" "route-table-association-public-subnet-2" {
-  subnet_id      = aws_subnet.public_2.id
-  route_table_id = aws_route_table.public.id
-}
-
-resource "aws_route_table_association" "route-table-association-private-app-subnet-1" {
-  subnet_id      = aws_subnet.private_app_1.id
-  route_table_id = aws_route_table.private.id
-}
-
-resource "aws_route_table_association" "route-table-association-private-app-subnet-2" {
-  subnet_id      = aws_subnet.private_app_2.id
-  route_table_id = aws_route_table.private.id
-}
-
-resource "aws_route_table_association" "route-table-association-private-db-subnet-1" {
-  subnet_id      = aws_subnet.private_db_1.id
-  route_table_id = aws_route_table.private.id
-}
-
-resource "aws_route_table_association" "route-table-association-private-db-subnet-2" {
-  subnet_id      = aws_subnet.private_db_2.id
-  route_table_id = aws_route_table.private.id
-}
-
-
 ```
+
+
