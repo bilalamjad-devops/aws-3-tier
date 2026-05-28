@@ -129,3 +129,18 @@ output "rds_endpoint" {
 }
 
 ```
+
+
+This code uses all the default subnets present in your AWS account's Default VPC.
+When you sign up for AWS, your Default VPC automatically comes with 1 default public subnet in every single Availability Zone (AZ) for that region [1].
+Here is exactly how the code counts and handles them:
+
+   1. How the code collects them: The data "aws_subnets" "default" block queries your AWS account and gathers the unique IDs of all those default subnets [2, 3].
+   2. For Mumbai (ap-south-1): Since Mumbai has 3 Availability Zones (ap-south-1a, ap-south-1b, and ap-south-1c), this code automatically picks up 3 subnets.
+   3. Passing to RDS: The aws_db_subnet_group takes all 3 of those Subnet IDs and passes them to the RDS instance.
+
+Since 3 subnets is greater than the minimum requirement of 2 subnets, AWS accepts the code perfectly and safely launches your database.
+------------------------------
+Would you like me to show you how to restrict the code to use exactly 2 specific subnets instead of passing all of them?
+
+
