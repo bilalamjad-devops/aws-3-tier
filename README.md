@@ -128,8 +128,9 @@ resource "aws_db_instance" "mysql_db" {
   password               = "SuperSecurePass123!" # Replace with your password
   db_subnet_group_name   = aws_db_subnet_group.default_db_group.name
   vpc_security_group_ids = [aws_security_group.rds_sg.id]
+  multi_az               = false   # Single-AZ for this simple lab (set to true for production)
   skip_final_snapshot    = true
-  publicly_accessible    = false
+  publicly_accessible    = false   # Do NOT give RDS a public IP — it must stay private
 
   tags = {
     Name = "Standalone-MySQL-RDS"
