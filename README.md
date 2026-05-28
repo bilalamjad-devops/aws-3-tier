@@ -83,7 +83,9 @@ resource "aws_security_group" "rds_sg" {
 # RDS requires a Subnet Group mapping at least 2 subnets even in a default VPC
 resource "aws_db_subnet_group" "default_db_group" {
   name       = "default-vpc-db-subnet-group"
-  subnet_ids = data.aws_subnets.default.ids
+  
+  # slice() function default list me se sirf 0 aur 1 index wale subnets nikalega
+  subnet_ids = slice(data.aws_subnets.default.ids, 0, 2)
 }
 
 # ==================== AWS RESOURCES ====================
@@ -142,5 +144,37 @@ Here is exactly how the code counts and handles them:
 Since 3 subnets is greater than the minimum requirement of 2 subnets, AWS accepts the code perfectly and safely launches your database.
 ------------------------------
 Would you like me to show you how to restrict the code to use exactly 2 specific subnets instead of passing all of them?
+
+
+Default VPC ke subnets ko limit karne ke liye aap apne data block ko slice kar sakte hain. Terraform ka built-in variable selection functions is kaam ko behad aasan bana deta hai.
+Aap apne standalone main.tf code ke RDS SUBNET GROUP wale hisse me ja kar thodi si taba deeli karein:
+## Code Tabdeeli (Modification)
+Aapka purana subnet group code ye tha:
+
+# Purana code (Jo saare subnets pass kar raha tha)
+resource "aws_db_subnet_group" "default_db_group" {
+  name       = "default-vpc-db-subnet-group"
+  subnet_ids = data.aws_subnets.default.ids
+}
+
+Usko badal kar aap ye wala naya code likhein:
+
+# Naya Code (Jo sirf pehle 2 subnets select karega)
+resource "aws_db_subnet_group" "default_db_group" {
+  name       = "default-vpc-db-subnet-group"
+  
+  # slice() function default list me se sirf 0 aur 1 index wale subnets nikalega
+  subnet_ids = slice(data.aws_subnets.default.ids, 0, 2)
+}
+
+------------------------------
+## Ye Kaam Kaise Karta Hai?
+Terraform ka slice(list, start_index, end_index) function ek lambi list ko chota karne ke liye use hota hai:
+
+* data.aws_subnets.default.ids: Yeh AWS Mumbai ke saare default subnet IDs (Total 3) uthata hai.
+* , 0, 2): Yeh block Terraform ko batata hai ke list ke pehle element (index 0) se shuru kare aur index 2 se pehle tak ruk jaye. Is se aapko exact 2 unique Subnet IDs milte hain.
+
+Ab agar aap terraform apply chalayenge, to AWS aapke database ko sirf unhi do specific default subnets me launch karega.
+Agar aap ko is configuration me EC2 instance ko kisi specific subnet ke andar lock karna ho, to kya hum uski setting ko bhi dekhhein?
 
 
