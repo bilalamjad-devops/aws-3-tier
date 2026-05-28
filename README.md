@@ -80,13 +80,29 @@ resource "aws_security_group" "rds_sg" {
 }
 
 # ==================== RDS SUBNET GROUP ====================
+
 # RDS requires a Subnet Group mapping at least 2 subnets even in a default VPC
+
+/*
+
+# Purana code (Jo saare subnets pass kar raha tha)
+resource "aws_db_subnet_group" "default_db_group" {
+  name       = "default-vpc-db-subnet-group"
+  subnet_ids = data.aws_subnets.default.ids
+}
+
+*/
+
+
+
+# Naya Code (Jo sirf pehle 2 subnets select karega)
 resource "aws_db_subnet_group" "default_db_group" {
   name       = "default-vpc-db-subnet-group"
   
   # slice() function default list me se sirf 0 aur 1 index wale subnets nikalega
   subnet_ids = slice(data.aws_subnets.default.ids, 0, 2)
 }
+
 
 # ==================== AWS RESOURCES ====================
 
